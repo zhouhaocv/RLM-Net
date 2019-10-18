@@ -1,0 +1,102 @@
+clc
+clear all
+DataPath = pwd;
+fsep = filesep;
+pos_v = strfind(DataPath,fsep);
+DataPath = DataPath(1:pos_v(end));
+datapath = '/outputs/';
+Detpath =strcat(datapath,model_name,'/inference/vrd_val_3/step/',step,'/ObjectDet.mat')
+model_name = 'output_predicate_recognition_stage';
+step = '0065000';
+reserved_nums = 110;
+%%
+fprintf('#######  Relationship computing Begins  ####### \n');
+for knum = [1,70]
+%% data loading
+addpath('evaluation');
+load('data/objectListN.mat'); 
+load('data/obj2vec.mat'); 
+load(Detpath);
+%%
+UnionCNN=predicate_scores;
+k=knum;
+testNum = 1000;
+for ii = 1 : testNum
+    
+%     if mod(ii, 100) == 0
+%         fprintf([num2str(ii), 'th image is tested! \n']);
+%     end
+    
+    rlp_labels{ii} = [];
+    rlp_confs{ii} = []; 
+    sub_bboxes{ii} = []; 
+    obj_bboxes{ii} = [];
+
+    detL_s = double(subject_category{ii});
+    detL_o = double(object_category{ii});
+    detB_s = double(subject_boundingboxes{ii}); 
+    detB_o = double(object_boundingboxes{ii}); 
+    detC_s = double(subject_scores{ii});
+    detC_o = double(object_scores{ii});
+    det_ids = double(ids{ii});
+    objectpair = double(objectpairs_scores{ii});
+
+    [m_score, confs1_index]  = sort(objectpair,'descend'); 
+    min1 = min(reserved_nums,size(confs1_index,1));
+    if min1 ==0
+        confs1_index=[];
+    else
+    confs1_index = confs1_index(1:min1,1);
+    end
+    
+    detL2_s = kron(detL_s(confs1_index,:),ones(k,1));
+    detB2_s = kron(detB_s(confs1_index,:),ones(k,1));
+    detC2_s = kron(detC_s(confs1_index,:),ones(k,1));
+    
+    detL2_o = kron(detL_o(confs1_index,:),ones(k,1));
+    detB2_o = kron(detB_o(confs1_index,:),ones(k,1));
+    detC2_o = kron(detC_o(confs1_index,:),ones(k,1));
+    objectpair = objectpair(confs1_index,:);
+
+    a=detC_s.*detC_o;
+    a=a(confs1_index,:);
+    visualModual = a.*UnionCNN{ii}(confs1_index,:);
+    % score vector over predicates
+      rlpScore = objectpair.*visualModual;
+    [m_score, m_predicate]  = sort(rlpScore,2,'descend'); 
+    m_predicate = m_predicate(:,1:k);
+    m_score = m_score(:,1:k);
+    m_predicate=m_predicate';
+    m_predicate=m_predicate(:);
+    m_score = m_score';
+    m_score=m_score(:);
+    rlp_labels{ii} = [detL2_s, m_predicate(:,1), detL2_o];            
+    rlp_confs{ii} = m_score; 
+    sub_bboxes{ii} = detB2_s;  
+    obj_bboxes{ii} = detB2_o;
+
+end
+
+
+%% sort by confident score
+for ii = 1 : length(rlp_confs)
+    [Confs, ind] = sort(rlp_confs{ii}, 'descend');
+    rlp_confs{ii} = Confs;
+    rlp_labels{ii} = rlp_labels{ii}(ind,:);
+    sub_bboxes{ii} = sub_bboxes{ii}(ind,:);
+    obj_bboxes{ii} = obj_bboxes{ii}(ind,:);
+end
+ 
+%% computing Phrase Det. and Relationship Det. accuracy
+fprintf('\n');
+fprintf('#######  Top recall results  ####### \n');
+recall100P = top_recall_Phrase(100, rlp_confs, rlp_labels, sub_bboxes, obj_bboxes);
+recall50P = top_recall_Phrase(50, rlp_confs, rlp_labels, sub_bboxes, obj_bboxes); 
+fprintf('Phrase Det. R@100,k=%d: %0.2f \n',knum, 100*recall100P);
+fprintf('Phrase Det. R@50,k=%d: %0.2f \n',knum,100*recall50P);
+
+recall100R = top_recall_Relationship(100, rlp_confs, rlp_labels, sub_bboxes, obj_bboxes);
+recall50R = top_recall_Relationship(50, rlp_confs, rlp_labels, sub_bboxes, obj_bboxes);
+fprintf('Relationship Det. R@100,k=%d: %0.2f \n', knum,100*recall100R);
+fprintf('Relationship Det. R@50,k=%d: %0.2f \n', knum,100*recall50R);
+end
