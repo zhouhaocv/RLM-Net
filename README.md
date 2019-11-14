@@ -52,4 +52,4 @@ python test_RLM_Net.py
 ```
 evaluate with [predicate_step](https://github.com/zhouhaocv/RLM-Net/blob/master/vrd/eval/predicate_step.m) and [relation_phrase_step](https://github.com/zhouhaocv/RLM-Net/blob/master/vrd/eval/relation_phrase_step.m).
 ## Contact
-If you have any problems, you can eamil to zhouhao_0039@sjtu.edu.cn.
+If you have any problems, you can email to zhouhao_0039@sjtu.edu.cn.
