@@ -65,19 +65,17 @@ class rating_model(nn.Module):
                 x_targets = self.feature_extractor(features, targets)
                 x= torch.cat((x_proposals,x_targets),0)
                 x = self.fc(x)
-                boxes_per_image = [len(box1)+len(box2) for i,(box1,box2) in enumerate (zip(proposals,targets))]
-                pro_tar_per_images = [[len(box1),len(box2)] for i,(box1,box2) in enumerate (zip(proposals,targets))]
+                split_box = [len(box) for i, box in enumerate (proposals)]
+                split_box.extend([len(box) for i, box in enumerate (targets)])
 
-            x = x.split(boxes_per_image, dim=0)
+            num_images = len(proposals)
+            x = x.split(split_box, dim=0)
             xs =[]
             labels = []
-            proposals_to_lpga = []
-            pro_tar_to_lpga = []
-            for i,(x_per_image,targets_per_image,proposals_per_image,pro_tar_per_image) in enumerate (zip(x,targets,proposals,pro_tar_per_images)):
-                x_per_image = x_per_image.split(pro_tar_per_image,dim=0)
-                x_per_image_proposals = x_per_image[0]
-                x_per_image_targets =x_per_image[1]
-
+            for i,(targets_per_image,proposals_per_image) in enumerate (zip(targets,proposals)):
+                x_per_image_proposals = x[i]
+                x_per_image_targets =x[i+num_images]
+            
                 ##proposals
                 if len(x_per_image_proposals) !=0:
                     x_subject_proposals = x_per_image_proposals.unsqueeze(1).expand(x_per_image_proposals.size(0),x_per_image_proposals.size(0),x_per_image_proposals.size(1))
@@ -116,9 +114,9 @@ class rating_model(nn.Module):
                 x_targets = x_targets[remain_idx_targets]
 
 
-                x,labels_per_image = BalancedPN(x_proposals,x_targets,labels_per_image_proposals,labels_per_image_targets,devices)
+                x1,labels_per_image = BalancedPN(x_proposals,x_targets,labels_per_image_proposals,labels_per_image_targets,devices)
 
-                xs.append(x)
+                xs.append(x1)
                 labels.append(labels_per_image)
 
 
